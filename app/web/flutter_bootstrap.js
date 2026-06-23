@@ -10,7 +10,7 @@
   window.preloadFlutterWeb = function () {
     if (engineInitializerPromise) return engineInitializerPromise;
 
-    engineInitializerPromise = new Promise((resolve, reject) => {
+    engineInitializerPromise = new Promise((resolve) => {
       _flutter.loader.load({
         config: {
           entrypointBaseUrl: appBase,
@@ -50,13 +50,10 @@
     return mountedViewId;
   };
 
-  window.runFlutterFullPage = async function () {
-    const engineInitializer = await window.preloadFlutterWeb();
-    const appRunner = await engineInitializer.initializeEngine();
-    await appRunner.runApp();
-  };
-
   if (window.location.pathname.startsWith('/app/')) {
-    window.runFlutterFullPage();
+    window.addEventListener('load', function () {
+      const host = document.getElementById('flutter-host');
+      window.mountFlutterWeb(host);
+    });
   }
 })();
