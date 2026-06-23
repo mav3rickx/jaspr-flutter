@@ -1,48 +1,238 @@
-/// The entrypoint for the **server** environment.
-///
-/// The [main] method will only be executed on the server during pre-rendering.
-/// To run code on the client, check the `main.client.dart` file.
-library;
-
 import 'package:jaspr/dom.dart';
-// Server-specific Jaspr import.
 import 'package:jaspr/server.dart';
 
-// Imports the [App] component.
-import 'app.dart';
-
-// This file is generated automatically by Jaspr, do not remove or edit.
 import 'main.server.options.dart';
 
 void main() {
-  // Initializes the server environment with the generated default options.
-  Jaspr.initializeApp(
-    options: defaultServerOptions,
-  );
+  Jaspr.initializeApp(options: defaultServerOptions);
 
-  // Starts the app.
-  //
-  // [Document] renders the root document structure (<html>, <head> and <body>)
-  // with the provided parameters and components.
-  runApp(Document(
-    title: 'shell',
-    styles: [
-      // Special import rule to include to another css file.
-      css.import('https://fonts.googleapis.com/css?family=Roboto'),
-      // Each style rule takes a valid css selector and a set of styles.
-      // Styles are defined using type-safe css bindings and can be freely chained and nested.
-      css('html, body').styles(
-        width: 100.percent,
-        minHeight: 100.vh,
-        padding: .zero,
-        margin: .zero,
-        fontFamily: const .list([FontFamily('Roboto'), FontFamilies.sansSerif]),
+  runApp(
+    Document(
+      title: 'Hybrid Jaspr + Flutter',
+      head: [
+        meta(
+          attributes: {
+            'name': 'description',
+            'content': 'Instant SSR landing page with background-preloaded Flutter web app.',
+          },
+        ),
+        meta(
+          attributes: {
+            'name': 'viewport',
+            'content': 'width=device-width, initial-scale=1',
+          },
+        ),
+        link(
+          rel: 'stylesheet',
+          href: '/styles.css',
+        ),
+
+        // Low-priority preloads. They fetch but do not execute Flutter.
+        link(
+          rel: 'preload',
+          href: '/app/flutter.js',
+          attributes: {
+            'as': 'script',
+            'fetchpriority': 'low',
+          },
+        ),
+        link(
+          rel: 'preload',
+          href: '/app/flutter_bootstrap.js',
+          attributes: {
+            'as': 'script',
+            'fetchpriority': 'low',
+          },
+        ),
+        link(
+          rel: 'preload',
+          href: '/app/main.dart.js',
+          attributes: {
+            'as': 'script',
+            'fetchpriority': 'low',
+          },
+        ),
+        link(
+          rel: 'preload',
+          href: '/app/AssetManifest.json',
+          attributes: {
+            'as': 'fetch',
+            'type': 'application/json',
+            'crossorigin': 'anonymous',
+            'fetchpriority': 'low',
+          },
+        ),
+        link(
+          rel: 'preload',
+          href: '/app/main.dart.wasm',
+          attributes: {
+            'as': 'fetch',
+            'type': 'application/wasm',
+            'crossorigin': 'anonymous',
+            'fetchpriority': 'low',
+          },
+        ),
+      ],
+      body: const LandingPage(),
+    ),
+  );
+}
+
+class LandingPage extends StatelessComponent {
+  const LandingPage({super.key});
+
+  @override
+  Component build(BuildContext context) {
+    return div([
+      main_([
+        section(classes: 'hero', [
+          div(classes: 'copy', [
+            p(classes: 'eyebrow', [Component.text('SSR by Jaspr')]),
+            h1([Component.text('Fast landing page, instant Flutter handoff')]),
+            p(classes: 'lead', [
+              Component.text(
+                'This page is server-rendered HTML. Flutter is fetched in the background, then launched after login.',
+              ),
+            ]),
+            div(classes: 'login', [
+              label([
+                Component.text('Email'),
+                input(
+                  id: 'email',
+                  attributes: {
+                    'type': 'email',
+                    'value': 'demo@example.com',
+                    'autocomplete': 'email',
+                  },
+                ),
+              ]),
+              label([
+                Component.text('Password'),
+                input(
+                  id: 'password',
+                  attributes: {
+                    'type': 'password',
+                    'value': 'password',
+                    'autocomplete': 'current-password',
+                  },
+                ),
+              ]),
+              div(classes: 'actions', [
+                button(
+                  id: 'hard-login',
+                  attributes: {'type': 'button'},
+                  [Component.text('Login: hard navigate')],
+                ),
+                button(
+                  id: 'spa-login',
+                  attributes: {'type': 'button'},
+                  [Component.text('Login: mount Flutter here')],
+                ),
+              ]),
+            ]),
+          ]),
+          div(id: 'flutter-host', classes: 'flutter-host', [
+            p([Component.text('SPA handoff target')]),
+          ]),
+        ]),
+      ]),
+      .element(
+        tag: 'script',
+        children: [
+          RawText(r'''
+(function () {
+  const tokenKey = 'demo_auth_token';
+  const flutterBase = '/app/';
+  let bootstrapPromise;
+
+  function createDemoToken() {
+    const email = document.getElementById('email').value || 'demo@example.com';
+    return 'demo-token-for-' + email + '-' + Date.now();
+  }
+
+  function storeAuthToken() {
+    const token = createDemoToken();
+    window.localStorage.setItem(tokenKey, token);
+    return token;
+  }
+
+  function preloadLink(href, as, type) {
+    const link = document.createElement('link');
+    link.rel = 'preload';
+    link.href = href;
+    link.as = as;
+    link.fetchPriority = 'low';
+    if (type) link.type = type;
+    if (as === 'fetch') link.crossOrigin = 'anonymous';
+    document.head.appendChild(link);
+  }
+
+  function preloadFlutterAssets() {
+    preloadLink(flutterBase + 'flutter.js', 'script');
+    preloadLink(flutterBase + 'flutter_bootstrap.js', 'script');
+    preloadLink(flutterBase + 'main.dart.js', 'script');
+    preloadLink(flutterBase + 'AssetManifest.json', 'fetch', 'application/json');
+
+    fetch(flutterBase + 'AssetManifest.json', {
+      mode: 'same-origin',
+      credentials: 'same-origin',
+      priority: 'low'
+    }).catch(function () {});
+  }
+
+  function loadFlutterBootstrap() {
+    if (window.preloadFlutterWeb) return Promise.resolve();
+    if (bootstrapPromise) return bootstrapPromise;
+
+    bootstrapPromise = new Promise(function (resolve, reject) {
+      const script = document.createElement('script');
+      script.src = flutterBase + 'flutter_bootstrap.js';
+      script.async = true;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+
+    return bootstrapPromise;
+  }
+
+  function warmFlutter() {
+    loadFlutterBootstrap()
+      .then(function () {
+        return window.preloadFlutterWeb && window.preloadFlutterWeb();
+      })
+      .catch(function () {});
+  }
+
+  window.addEventListener('load', function () {
+    preloadFlutterAssets();
+
+    const idle = window.requestIdleCallback || function (cb) {
+      return window.setTimeout(cb, 800);
+    };
+
+    idle(warmFlutter);
+  });
+
+  document.getElementById('hard-login').addEventListener('click', function () {
+    storeAuthToken();
+    window.location.assign('/app');
+  });
+
+  document.getElementById('spa-login').addEventListener('click', async function () {
+    storeAuthToken();
+
+    const host = document.getElementById('flutter-host');
+    host.classList.add('active');
+    host.innerHTML = '';
+
+    await loadFlutterBootstrap();
+    await window.mountFlutterWeb(host);
+  });
+})();
+'''),
+        ],
       ),
-      css('h1').styles(
-        margin: .unset,
-        fontSize: 4.rem,
-      ),
-    ],
-    body: App(),
-  ));
+    ]);
+  }
 }
